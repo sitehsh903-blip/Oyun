@@ -2,8 +2,8 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Futbol Arenası</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mobil Destekli Futbol Arenası</title>
     <style>
         body {
             margin: 0;
@@ -14,19 +14,57 @@
             align-items: center;
             font-family: Arial, sans-serif;
             color: white;
+            touch-action: manipulation;
+            user-select: none;
+        }
+        #scoreboard {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 10px;
         }
         canvas {
             background-color: #27ae60;
-            border: 5px solid #ecf0f1;
+            border: 3px solid #ecf0f1;
             border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            margin-top: 20px;
+            max-width: 95vw;
+            max-height: 50vh;
         }
-        #scoreboard {
-            font-size: 32px;
+        /* Mobil Buton Alanları */
+        .controls-container {
+            display: flex;
+            justify-content: space-between;
+            width: 95%;
+            margin-top: 15px;
+        }
+        .dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 5px;
+        }
+        .btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            border-radius: 10px;
+            color: white;
+            font-size: 20px;
             font-weight: bold;
-            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+        .btn:active {
+            background-color: rgba(255, 255, 255, 0.6);
+        }
+        #p1-up { grid-column: 2; grid-row: 1; border-color: #e74c3c; }
+        #p1-left { grid-column: 1; grid-row: 2; border-color: #e74c3c; }
+        #p1-down { grid-column: 2; grid-row: 2; border-color: #e74c3c; }
+        #p1-right { grid-column: 3; grid-row: 2; border-color: #e74c3c; }
+
+        #p2-up { grid-column: 2; grid-row: 1; border-color: #3498db; }
+        #p2-left { grid-column: 1; grid-row: 2; border-color: #3498db; }
+        #p2-down { grid-column: 2; grid-row: 2; border-color: #3498db; }
+        #p2-right { grid-column: 3; grid-row: 2; border-color: #3498db; }
     </style>
 </head>
 <body>
@@ -34,82 +72,97 @@
     <div id="scoreboard">Kırmızı: 0 - Mavi: 0</div>
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
+    <div class="controls-container">
+        <div class="dpad">
+            <div class="btn" id="p1-up">↑</div>
+            <div class="btn" id="p1-left">←</div>
+            <div class="btn" id="p1-down">↓</div>
+            <div class="btn" id="p1-right">→</div>
+        </div>
+        <div class="dpad">
+            <div class="btn" id="p2-up">↑</div>
+            <div class="btn" id="p2-left">←</div>
+            <div class="btn" id="p2-down">↓</div>
+            <div class="btn" id="p2-right">→</div>
+        </div>
+    </div>
+
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const scoreElement = document.getElementById("scoreboard");
 
         let scores = { red: 0, blue: 0 };
-        const friction = 0.96; // Sürtünme katsayısı
+        const friction = 0.96;
 
-        // Klavye girişleri
-        const keys = {};
-        window.addEventListener("keydown", (e) => keys[e.key] = true);
-        window.addEventListener("keyup", (e) => keys[e.key] = false);
+        // Kontrol durumları
+        const controls = {
+            p1: { up: false, down: false, left: false, right: false },
+            p2: { up: false, down: false, left: false, right: false }
+        };
 
-        // Oyun Objeleri
+        // Bilgisayar için Klavye Dinleyicileri
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "w") controls.p1.up = true;
+            if (e.key === "s") controls.p1.down = true;
+            if (e.key === "a") controls.p1.left = true;
+            if (e.key === "d") controls.p1.right = true;
+            if (e.key === "ArrowUp") controls.p2.up = true;
+            if (e.key === "ArrowDown") controls.p2.down = true;
+            if (e.key === "ArrowLeft") controls.p2.left = true;
+            if (e.key === "ArrowRight") controls.p2.right = true;
+        });
+
+        window.addEventListener("keyup", (e) => {
+            if (e.key === "w") controls.p1.up = false;
+            if (e.key === "s") controls.p1.down = false;
+            if (e.key === "a") controls.p1.left = false;
+            if (e.key === "d") controls.p1.right = false;
+            if (e.key === "ArrowUp") controls.p2.up = false;
+            if (e.key === "ArrowDown") controls.p2.down = false;
+            if (e.key === "ArrowLeft") controls.p2.left = false;
+            if (e.key === "ArrowRight") controls.p2.right = false;
+        });
+
+        // Mobil için Dokunmatik Dinleyiciler
+        function setupTouch(id, player, dir) {
+            const btn = document.getElementById(id);
+            btn.addEventListener("touchstart", (e) => { e.preventDefault(); controls[player][dir] = true; });
+            btn.addEventListener("touchend", (e) => { e.preventDefault(); controls[player][dir] = false; });
+        }
+        setupTouch("p1-up", "p1", "up"); setupTouch("p1-down", "p1", "down"); setupTouch("p1-left", "p1", "left"); setupTouch("p1-right", "p1", "right");
+        setupTouch("p2-up", "p2", "up"); setupTouch("p2-down", "p2", "down"); setupTouch("p2-left", "p2", "left"); setupTouch("p2-right", "p2", "right");
+
         class Circle {
             constructor(x, y, radius, color, mass, isBall = false) {
-                this.x = x;
-                this.y = y;
-                this.radius = radius;
-                this.color = color;
-                this.mass = mass;
-                this.vx = 0;
-                this.vy = 0;
-                this.speed = 0.5;
-                this.maxSpeed = isBall ? 10 : 4;
-                this.isBall = isBall;
+                this.x = x; this.y = y; this.radius = radius; this.color = color; this.mass = mass;
+                this.vx = 0; this.vy = 0; this.speed = 0.6; this.maxSpeed = isBall ? 12 : 5; this.isBall = isBall;
             }
-
             draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.closePath();
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fillStyle = this.color; ctx.fill(); ctx.closePath();
             }
-
             update() {
-                this.vx *= friction;
-                this.vy *= friction;
-
-                // Hız sınırı
+                this.vx *= friction; this.vy *= friction;
                 let currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
                 if (currentSpeed > this.maxSpeed) {
-                    this.vx = (this.vx / currentSpeed) * this.maxSpeed;
-                    this.vy = (this.vy / currentSpeed) * this.maxSpeed;
+                    this.vx = (this.vx / currentSpeed) * this.maxSpeed; this.vy = (this.vy / currentSpeed) * this.maxSpeed;
                 }
-
-                this.x += this.vx;
-                this.y += this.vy;
-
-                // Duvar çarpışmaları
+                this.x += this.vx; this.y += this.vy;
                 if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -1; }
                 if (this.x + this.radius > canvas.width) { this.x = canvas.width - this.radius; this.vx *= -1; }
-                
-                // Kaleleri belirle (Y ekseni sınırları)
                 let inGoalY = this.y > 150 && this.y < 350;
-
                 if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -1; }
                 if (this.y + this.radius > canvas.height) { this.y = canvas.height - this.radius; this.vy *= -1; }
-
-                // Gol kontrolü (sadece top için)
                 if (this.isBall) {
-                    if (this.x - this.radius <= 5 && inGoalY) {
-                        scores.blue++;
-                        resetPositions();
-                    } else if (this.x + this.radius >= canvas.width - 5 && inGoalY) {
-                        scores.red++;
-                        resetPositions();
-                    }
+                    if (this.x - this.radius <= 5 && inGoalY) { scores.blue++; resetPositions(); }
+                    else if (this.x + this.radius >= canvas.width - 5 && inGoalY) { scores.red++; resetPositions(); }
                 }
             }
         }
 
         const ball = new Circle(400, 250, 12, "white", 1, true);
-        const player1 = new Circle(200, 250, 20, "#e74c3c", 2); // Kırmızı
-        const player2 = new Circle(600, 250, 20, "#3498db", 2); // Mavi
+        const player1 = new Circle(200, 250, 22, "#e74c3c", 2);
+        const player2 = new Circle(600, 250, 22, "#3498db", 2);
 
         function resetPositions() {
             ball.x = 400; ball.y = 250; ball.vx = 0; ball.vy = 0;
@@ -119,74 +172,41 @@
         }
 
         function checkCollision(c1, c2) {
-            let dx = c2.x - c1.x;
-            let dy = c2.y - c1.y;
-            let distance = Math.sqrt(dx * dx + dy * dy);
-
+            let dx = c2.x - c1.x; let dy = c2.y - c1.y; let distance = Math.sqrt(dx * dx + dy * dy);
             if (distance < c1.radius + c2.radius) {
-                // Basit esnek çarpışma ve vektör itimi
-                let angle = Math.atan2(dy, dx);
-                let force = 1.5; 
-                
-                // Objeleri birbirinin içinden çıkar
+                let angle = Math.atan2(dy, dx); let force = 1.8;
                 let overlap = (c1.radius + c2.radius) - distance;
-                c2.x += Math.cos(angle) * overlap * 0.5;
-                c2.y += Math.sin(angle) * overlap * 0.5;
-
-                // Momentumu aktar
-                c2.vx += Math.cos(angle) * force + (c1.vx * 0.5);
-                c2.vy += Math.sin(angle) * force + (c1.vy * 0.5);
+                c2.x += Math.cos(angle) * overlap * 0.5; c2.y += Math.sin(angle) * overlap * 0.5;
+                c2.vx += Math.cos(angle) * force + (c1.vx * 0.4); c2.vy += Math.sin(angle) * force + (c1.vy * 0.4);
             }
         }
 
         function drawPitch() {
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-            ctx.lineWidth = 3;
-            
-            // Orta çizgi ve yuvarlak
-            ctx.beginPath();
-            ctx.moveTo(400, 0); ctx.lineTo(400, 500);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(400, 250, 60, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Kaleler
-            ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-            ctx.fillRect(0, 150, 40, 200); // Sol kale
-            ctx.fillRect(760, 150, 40, 200); // Sağ kale
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 500); ctx.stroke();
+            ctx.beginPath(); ctx.arc(400, 250, 60, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.2)"; ctx.fillRect(0, 150, 30, 200); ctx.fillRect(770, 150, 30, 200);
         }
 
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawPitch();
 
-            // Player 1 (WASD) Hareket
-            if (keys["w"]) player1.vy -= player1.speed;
-            if (keys["s"]) player1.vy += player1.speed;
-            if (keys["a"]) player1.vx -= player1.speed;
-            if (keys["d"]) player1.vx += player1.speed;
+            if (controls.p1.up) player1.vy -= player1.speed;
+            if (controls.p1.down) player1.vy += player1.speed;
+            if (controls.p1.left) player1.vx -= player1.speed;
+            if (controls.p1.right) player1.vx += player1.speed;
 
-            // Player 2 (Yön Tuşları) Hareket
-            if (keys["ArrowUp"]) player2.vy -= player2.speed;
-            if (keys["ArrowDown"]) player2.vy += player2.speed;
-            if (keys["ArrowLeft"]) player2.vx -= player2.speed;
-            if (keys["ArrowRight"]) player2.vx += player2.speed;
+            if (controls.p2.up) player2.vy -= player2.speed;
+            if (controls.p2.down) player2.vy += player2.speed;
+            if (controls.p2.left) player2.vx -= player2.speed;
+            if (controls.p2.right) player2.vx += player2.speed;
 
-            // Çarpışmalar
-            checkCollision(player1, ball);
-            checkCollision(player2, ball);
-            checkCollision(player1, player2);
-
-            // Güncelle ve Çiz
-            player1.update(); player1.draw();
-            player2.update(); player2.draw();
-            ball.update(); ball.draw();
-
+            checkCollision(player1, ball); checkCollision(player2, ball); checkCollision(player1, player2);
+            player1.update(); player1.draw(); player2.update(); player2.draw(); ball.update(); ball.draw();
             requestAnimationFrame(gameLoop);
         }
-
-        gameLoop(); // Döngüyü başlat
+        gameLoop();
     </script>
 </body>
 </html>
