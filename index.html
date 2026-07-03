@@ -3,43 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>FPS Futbol Prototip</title>
+    <title>Gelişmiş 3D FPS Futbol</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
-        
-        /* Arayüz (UI) Katmanı */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        
-        /* Nişangah (Crosshair) */
         #crosshair { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; background: white; border: 2px solid black; border-radius: 50%; transform: translate(-50%, -50%); opacity: 0.8; }
         
-        /* Barlar */
         .bar-container { position: absolute; top: 20px; width: 40%; height: 20px; background: rgba(0,0,0,0.5); border: 2px solid white; border-radius: 10px; overflow: hidden; }
         #stamina-container { left: 20px; }
         #stamina-fill { width: 100%; height: 100%; background: #2ecc71; transition: width 0.1s; }
-        
         #power-container { left: 50%; transform: translateX(-50%); top: 50px; display: none; }
         #power-fill { width: 0%; height: 100%; background: #e74c3c; }
-
-        /* Skor ve Bilgi */
         #info { position: absolute; top: 20px; right: 20px; color: white; font-size: 18px; font-weight: bold; text-shadow: 1px 1px 2px black; text-align: right; }
 
-        /* Kontroller - Sol Joystick Bölgesi */
+        /* Sabit ve Görünür Joystick */
         #joystick-zone { position: absolute; bottom: 0; left: 0; width: 50%; height: 50%; pointer-events: auto; }
-        #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; display: none; }
-        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,255,255,0.7); border-radius: 50%; }
+        #joystick-base { position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.3); border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; display: block; }
+        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,255,255,0.9); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: transform 0.05s; }
 
-        /* Kontroller - Sağ Kamera ve Buton Bölgesi */
         #camera-zone { position: absolute; top: 0; right: 0; width: 50%; height: 100%; pointer-events: auto; }
         #buttons-container { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
         
         .action-row { display: flex; gap: 10px; }
-        .btn { width: 70px; height: 70px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 3px solid white; color: white; font-size: 14px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
-        .btn:active { background: rgba(255,255,255,0.6); color: black; }
+        .btn { width: 75px; height: 75px; border-radius: 50%; background: rgba(0,0,0,0.5); border: 3px solid white; color: white; font-size: 14px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .btn:active { background: rgba(255,255,255,0.8); color: black; }
+        #btn-shoot { border-color: #e74c3c; font-size: 16px; }
         #btn-sprint { border-color: #2ecc71; }
         
-        /* Atak ve Defans Buton Grupları */
         #attack-btns { display: none; }
         #defense-btns { display: flex; }
     </style>
@@ -50,7 +41,6 @@
         <div id="crosshair"></div>
         <div class="bar-container" id="stamina-container"><div id="stamina-fill"></div></div>
         <div class="bar-container" id="power-container"><div id="power-fill"></div></div>
-        
         <div id="info">Skor: 0 - 0<br><span id="status">Top Boşta</span></div>
 
         <div id="joystick-zone">
@@ -62,7 +52,7 @@
                 <div class="action-row" id="attack-btns">
                     <div class="btn" id="btn-cross">Orta</div>
                     <div class="btn" id="btn-pass">Pas</div>
-                    <div class="btn" id="btn-shoot">Şut</div>
+                    <div class="btn" id="btn-shoot">Şut<br>(Kaydır)</div>
                 </div>
                 <div class="action-row" id="defense-btns">
                     <div class="btn" id="btn-slide">Kayma</div>
@@ -76,9 +66,8 @@
     </div>
 
     <script>
-        // --- 1. SAHNE VE THREE.JS KURULUMU ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Gökyüzü
+        scene.background = new THREE.Color(0x87CEEB);
         
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -86,7 +75,7 @@
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         dirLight.position.set(50, 100, 50);
@@ -94,375 +83,288 @@
         scene.add(dirLight);
 
         // Saha
-        const pitchGeo = new THREE.PlaneGeometry(120, 200);
-        const pitchMat = new THREE.MeshLambertMaterial({ color: 0x27ae60 });
-        const pitch = new THREE.Mesh(pitchGeo, pitchMat);
+        const pitch = new THREE.Mesh(new THREE.PlaneGeometry(120, 200), new THREE.MeshLambertMaterial({ color: 0x27ae60 }));
         pitch.rotation.x = -Math.PI / 2;
         pitch.receiveShadow = true;
         scene.add(pitch);
 
-        // Kaleler
-        const goalMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
-        const goalBlue = new THREE.Mesh(new THREE.BoxGeometry(30, 10, 5), goalMat); // Bizim Kale (Arkada)
-        goalBlue.position.set(0, 5, 100);
-        scene.add(goalBlue);
+        const goalBlue = new THREE.Mesh(new THREE.BoxGeometry(30, 10, 5), new THREE.MeshLambertMaterial({ color: 0x3498db, transparent: true, opacity: 0.5 }));
+        goalBlue.position.set(0, 5, 100); scene.add(goalBlue);
         
-        const goalRed = new THREE.Mesh(new THREE.BoxGeometry(30, 10, 5), new THREE.MeshLambertMaterial({ color: 0xffaaaa, transparent: true, opacity: 0.3 })); // Rakip Kale (Önde)
-        goalRed.position.set(0, 5, -100);
-        scene.add(goalRed);
+        const goalRed = new THREE.Mesh(new THREE.BoxGeometry(30, 10, 5), new THREE.MeshLambertMaterial({ color: 0xe74c3c, transparent: true, opacity: 0.5 }));
+        goalRed.position.set(0, 5, -100); scene.add(goalRed);
 
-        // --- 2. OYUN DEĞİŞKENLERİ VE OBJELER ---
-        let scores = { player: 0, bot: 0 };
-        let state = { possession: 'none' }; // 'player', 'bot', 'none'
-        
-        // Kamera/Oyuncu Rotasyonu (Kafa)
-        let pitchObj = new THREE.Object3D(); // Yukarı aşağı
-        let yawObj = new THREE.Object3D();   // Sağa sola
-        yawObj.position.set(0, 6, 80); // Oyuncu başlangıç pozisyonu (Göz hizası = 6)
-        yawObj.add(pitchObj);
+        // --- KARAKTER (İNSANSI) OLUŞTURUCU ---
+        function createHumanoid(colorHex) {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshLambertMaterial({ color: colorHex });
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0xf1c27d });
+
+            // Gövde
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 2), mat);
+            torso.position.y = 6; torso.castShadow = true; group.add(torso);
+            // Kafa
+            const head = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), skinMat);
+            head.position.y = 10.5; head.castShadow = true; group.add(head);
+            // Kollar
+            const armGeo = new THREE.BoxGeometry(1.2, 5, 1.2);
+            const lArm = new THREE.Mesh(armGeo, skinMat); lArm.position.set(-3, 6, 0); lArm.castShadow = true; group.add(lArm);
+            const rArm = new THREE.Mesh(armGeo, skinMat); rArm.position.set(3, 6, 0); rArm.castShadow = true; group.add(rArm);
+            // Bacaklar
+            const legGeo = new THREE.BoxGeometry(1.5, 6, 1.5);
+            const lLeg = new THREE.Mesh(legGeo, mat); lLeg.position.set(-1.2, 3, 0); lLeg.castShadow = true; group.add(lLeg);
+            const rLeg = new THREE.Mesh(legGeo, mat); rLeg.position.set(1.2, 3, 0); rLeg.castShadow = true; group.add(rLeg);
+
+            return { model: group, lArm, rArm, lLeg, rLeg, head };
+        }
+
+        // Oyuncu ve Bot Modelleri
+        const playerChar = createHumanoid(0x3498db); // Mavi formamız
+        scene.add(playerChar.model);
+        playerChar.model.position.set(0, 0, 80);
+
+        const botChar = createHumanoid(0xe74c3c); // Kırmızı rakip
+        scene.add(botChar.model);
+        botChar.model.position.set(0, 0, -50);
+
+        // Kamera yerleşimi (Kafanın içine, göz hizasına)
+        let pitchObj = new THREE.Object3D();
         pitchObj.add(camera);
-        scene.add(yawObj);
+        playerChar.head.add(pitchObj); // Kamerayı kafaya bağladık
+        pitchObj.position.set(0, 0, 0.5); // Gözler biraz önde olsun kafanın içini görmeyelim
 
         // Top
-        const ballGeo = new THREE.SphereGeometry(1.5, 32, 32);
-        const ballMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-        const ball = new THREE.Mesh(ballGeo, ballMat);
-        ball.castShadow = true;
-        scene.add(ball);
-        let ballPhysics = { x: 0, y: 1.5, z: 0, vx: 0, vy: 0, vz: 0, curve: 0 };
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+        ball.castShadow = true; scene.add(ball);
+        let ballP = { x: 0, y: 1.5, z: 0, vx: 0, vy: 0, vz: 0, curveX: 0, curveY: 0 };
 
-        // Bot (Rakip)
-        const botGeo = new THREE.BoxGeometry(4, 12, 4);
-        const botMat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
-        const bot = new THREE.Mesh(botGeo, botMat);
-        bot.position.set(0, 6, -50);
-        bot.castShadow = true;
-        scene.add(bot);
-        let botSpeed = 0.3;
+        // Oyun Durumu
+        let scores = { player: 0, bot: 0 };
+        let state = { possession: 'none' };
+        let input = { move: { x: 0, y: 0 }, sprint: false, actionCharge: 0, isCharging: false };
+        let playerStats = { stamina: 100, speed: 0.35, sprintMult: 1.8 };
+        let walkCycle = 0; // Animasyon döngüsü
 
-        // --- 3. KONTROLLER VE GİRİŞLER ---
-        let input = {
-            move: { x: 0, y: 0 },
-            look: { x: 0, y: 0 },
-            sprint: false,
-            actionCharge: 0,
-            isCharging: false,
-            actionType: null // 'shoot', 'pass', 'cross'
-        };
+        // --- SABİT JOYSTICK KONTROLLERİ ---
+        const jZone = document.getElementById('joystick-zone');
+        const jStick = document.getElementById('joystick-stick');
+        const jBase = document.getElementById('joystick-base');
+        let jTouch = null;
+        let baseRect = jBase.getBoundingClientRect();
+        let jCenter = { x: baseRect.left + 60, y: baseRect.top + 60 };
 
-        let playerStats = { stamina: 100, speed: 0.4, sprintMultiplier: 1.8 };
-
-        // Joystick Mantığı
-        const joystickZone = document.getElementById('joystick-zone');
-        const joystickBase = document.getElementById('joystick-base');
-        const joystickStick = document.getElementById('joystick-stick');
-        let jTouchId = null;
-        let jCenter = { x: 0, y: 0 };
-
-        joystickZone.addEventListener('touchstart', (e) => {
-            if(jTouchId !== null) return;
-            const t = e.changedTouches[0];
-            jTouchId = t.identifier;
-            jCenter = { x: t.clientX, y: t.clientY };
-            joystickBase.style.display = 'block';
-            joystickBase.style.left = (jCenter.x - 60) + 'px';
-            joystickBase.style.top = (jCenter.y - 60) + 'px';
-            joystickStick.style.transform = `translate(0px, 0px)`;
+        window.addEventListener('resize', () => {
+            baseRect = jBase.getBoundingClientRect();
+            jCenter = { x: baseRect.left + 60, y: baseRect.top + 60 };
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        joystickZone.addEventListener('touchmove', (e) => {
+        jZone.addEventListener('touchstart', (e) => {
+            if(jTouch !== null) return;
+            jTouch = e.changedTouches[0].identifier;
+            updateJoystick(e.changedTouches[0]);
+        });
+        jZone.addEventListener('touchmove', (e) => {
+            for(let t of e.changedTouches) if(t.identifier === jTouch) updateJoystick(t);
+        });
+        jZone.addEventListener('touchend', (e) => {
             for(let t of e.changedTouches) {
-                if(t.identifier === jTouchId) {
-                    let dx = t.clientX - jCenter.x;
-                    let dy = t.clientY - jCenter.y;
-                    let distance = Math.sqrt(dx*dx + dy*dy);
-                    let maxDist = 40;
-                    if(distance > maxDist) { dx = (dx/distance)*maxDist; dy = (dy/distance)*maxDist; }
-                    joystickStick.style.transform = `translate(${dx}px, ${dy}px)`;
-                    // Normalize to -1 to 1
-                    input.move.x = dx / maxDist;
-                    input.move.y = dy / maxDist;
-                }
+                if(t.identifier === jTouch) { jTouch = null; jStick.style.transform = `translate(0px, 0px)`; input.move = { x: 0, y: 0 }; }
             }
         });
 
-        joystickZone.addEventListener('touchend', (e) => {
-            for(let t of e.changedTouches) {
-                if(t.identifier === jTouchId) {
-                    jTouchId = null;
-                    joystickBase.style.display = 'none';
-                    input.move = { x: 0, y: 0 };
-                }
-            }
-        });
-
-        // Kamera Kaydırma Mantığı
-        const cameraZone = document.getElementById('camera-zone');
-        let camTouchId = null;
-        let lastCamTouch = { x: 0, y: 0 };
-
-        cameraZone.addEventListener('touchstart', (e) => {
-            if(e.target.classList.contains('btn')) return; // Butona basıldıysa kamerayı çevirme
-            if(camTouchId !== null) return;
-            const t = e.changedTouches[0];
-            camTouchId = t.identifier;
-            lastCamTouch = { x: t.clientX, y: t.clientY };
-        });
-
-        cameraZone.addEventListener('touchmove', (e) => {
-            for(let t of e.changedTouches) {
-                if(t.identifier === camTouchId) {
-                    let dx = t.clientX - lastCamTouch.x;
-                    let dy = t.clientY - lastCamTouch.y;
-                    
-                    yawObj.rotation.y -= dx * 0.005; // Sağa sola bakış
-                    pitchObj.rotation.x -= dy * 0.005; // Yukarı aşağı bakış
-                    // Boyun kırılmasını engelle
-                    pitchObj.rotation.x = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, pitchObj.rotation.x));
-                    
-                    lastCamTouch = { x: t.clientX, y: t.clientY };
-                }
-            }
-        });
-
-        cameraZone.addEventListener('touchend', (e) => {
-            for(let t of e.changedTouches) { if(t.identifier === camTouchId) camTouchId = null; }
-        });
-
-        // Buton Dinleyicileri
-        const btnSprint = document.getElementById('btn-sprint');
-        btnSprint.addEventListener('touchstart', () => input.sprint = true);
-        btnSprint.addEventListener('touchend', () => input.sprint = false);
-
-        const powerCont = document.getElementById('power-container');
-        const powerFill = document.getElementById('power-fill');
-
-        function setupActionBtn(id, type) {
-            const btn = document.getElementById(id);
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); input.isCharging = true; input.actionType = type; powerCont.style.display = 'block'; });
-            btn.addEventListener('touchend', (e) => { e.preventDefault(); executeAction(); });
+        function updateJoystick(t) {
+            let dx = t.clientX - jCenter.x; let dy = t.clientY - jCenter.y;
+            let dist = Math.sqrt(dx*dx + dy*dy); let max = 40;
+            if(dist > max) { dx = (dx/dist)*max; dy = (dy/dist)*max; }
+            jStick.style.transform = `translate(${dx}px, ${dy}px)`;
+            input.move = { x: dx/max, y: dy/max };
         }
-        setupActionBtn('btn-shoot', 'shoot');
-        setupActionBtn('btn-pass', 'pass');
-        setupActionBtn('btn-cross', 'cross');
 
-        document.getElementById('btn-tackle').addEventListener('touchstart', (e) => { e.preventDefault(); attemptTackle(); });
-        document.getElementById('btn-slide').addEventListener('touchstart', (e) => { e.preventDefault(); attemptTackle(true); });
+        // --- KAMERA KONTROLLERİ (Sağ Ekran) ---
+        const camZone = document.getElementById('camera-zone');
+        let camTouch = null; let lastCam = { x: 0, y: 0 };
+        camZone.addEventListener('touchstart', (e) => {
+            if(e.target.classList.contains('btn')) return;
+            if(camTouch === null) { camTouch = e.changedTouches[0].identifier; lastCam = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }; }
+        });
+        camZone.addEventListener('touchmove', (e) => {
+            for(let t of e.changedTouches) {
+                if(t.identifier === camTouch) {
+                    playerChar.model.rotation.y -= (t.clientX - lastCam.x) * 0.005; // Tüm vücut döner
+                    pitchObj.rotation.x -= (t.clientY - lastCam.y) * 0.005; // Sadece kafa aşağı yukarı
+                    pitchObj.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/3, pitchObj.rotation.x));
+                    lastCam = { x: t.clientX, y: t.clientY };
+                }
+            }
+        });
+        camZone.addEventListener('touchend', (e) => { for(let t of e.changedTouches) if(t.identifier === camTouch) camTouch = null; });
 
-        // --- 4. OYUN MEKANİKLERİ ---
+        // --- ŞUT VE KAYDIRMA (FALSO/SPIN) MEKANİĞİ ---
+        const btnShoot = document.getElementById('btn-shoot');
+        let swipeStart = {x: 0, y: 0}; let swipeCurrent = {x: 0, y: 0};
         
-        function updateUI() {
-            const attackBtns = document.getElementById('attack-btns');
-            const defBtns = document.getElementById('defense-btns');
-            const statusTxt = document.getElementById('status');
+        btnShoot.addEventListener('touchstart', (e) => {
+            e.preventDefault(); input.isCharging = true; document.getElementById('power-container').style.display = 'block';
+            swipeStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+            swipeCurrent = {x: swipeStart.x, y: swipeStart.y};
+        });
+        btnShoot.addEventListener('touchmove', (e) => {
+            e.preventDefault(); swipeCurrent = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        });
+        btnShoot.addEventListener('touchend', (e) => {
+            e.preventDefault(); 
+            let dx = swipeCurrent.x - swipeStart.x; // Sağ/Sol Falso
+            let dy = swipeCurrent.y - swipeStart.y; // Yukarı/Aşağı Falso
+            executeShot(dx, dy);
+        });
 
-            if(state.possession === 'player') {
-                attackBtns.style.display = 'flex'; defBtns.style.display = 'none';
-                statusTxt.innerText = "Top Sende!"; statusTxt.style.color = "#2ecc71";
-            } else if(state.possession === 'bot') {
-                attackBtns.style.display = 'none'; defBtns.style.display = 'flex';
-                statusTxt.innerText = "Top Rakipte!"; statusTxt.style.color = "#e74c3c";
-            } else {
-                attackBtns.style.display = 'none'; defBtns.style.display = 'flex'; // Boştaysa defans butonları kalsın
-                statusTxt.innerText = "Top Boşta"; statusTxt.style.color = "white";
-            }
+        document.getElementById('btn-sprint').addEventListener('touchstart', () => input.sprint = true);
+        document.getElementById('btn-sprint').addEventListener('touchend', () => input.sprint = false);
 
-            document.getElementById('stamina-fill').style.width = playerStats.stamina + '%';
-            if(input.isCharging) {
-                input.actionCharge = Math.min(100, input.actionCharge + 2); // Bar dolum hızı
-                powerFill.style.width = input.actionCharge + '%';
-            }
-        }
-
-        function executeAction() {
+        // --- FİZİK VE OYUN MANTIĞI ---
+        function executeShot(swipeDx, swipeDy) {
             if(!input.isCharging || state.possession !== 'player') return;
             
-            // Güce göre vektör hesapla
-            let powerMultiplier = input.actionCharge / 100;
+            let power = input.actionCharge / 100; // 0 ile 1 arası
+            
+            // Kamera yönünü al
             let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(pitchObj.getWorldQuaternion(new THREE.Quaternion()));
             
-            let force = 0;
-            let upForce = 0;
+            // KALİBRASYON: Max güçte karşı kalenin direğini hafif yalayacak (Z mesafesi 200 birim)
+            let maxZForce = 4.2; 
+            let maxYForce = 1.6; 
+            
+            let force = maxZForce * power;
+            let upForce = maxYForce * power;
 
-            if(input.actionType === 'shoot') { force = 2.5 * powerMultiplier; upForce = 0.5 * powerMultiplier; }
-            if(input.actionType === 'pass') { force = 1.0 * powerMultiplier; upForce = 0.1; }
-            if(input.actionType === 'cross') { force = 1.8 * powerMultiplier; upForce = 1.2 * powerMultiplier; }
+            // Kaydırma (Falso) Yorumlama
+            ballP.curveX = 0; ballP.curveY = 0;
+            
+            if(swipeDx > 30) ballP.curveX = 0.05 * power; // Sağa çekti -> Sağa Falso
+            if(swipeDx < -30) ballP.curveX = -0.05 * power; // Sola çekti -> Sola Falso
+            
+            if(swipeDy > 30) { ballP.curveY = -0.08 * power; upForce -= 0.3; } // Aşağı çekti -> Topspin (Ölü yaprak, hızla iner)
+            if(swipeDy < -30) { ballP.curveY = 0.04 * power; upForce += 0.5; } // Yukarı çekti -> Backspin (Havalanarak gider)
 
-            // Falso (Curve): Şut anında joystick X ekseni nereyeyse, tersine/doğrultusuna falso verir.
-            ballPhysics.curve = input.move.x * 0.05 * powerMultiplier;
+            ballP.vx = forward.x * force;
+            ballP.vy = forward.y * force + upForce;
+            ballP.vz = forward.z * force;
 
-            ballPhysics.vx = forward.x * force;
-            ballPhysics.vy = forward.y * force + upForce;
-            ballPhysics.vz = forward.z * force;
-
-            state.possession = 'none';
-            input.isCharging = false;
-            input.actionCharge = 0;
-            powerCont.style.display = 'none';
-            powerFill.style.width = '0%';
+            state.possession = 'none'; input.isCharging = false; input.actionCharge = 0;
+            document.getElementById('power-container').style.display = 'none'; document.getElementById('power-fill').style.width = '0%';
         }
 
-        function attemptTackle(isSlide = false) {
-            let dist = yawObj.position.distanceTo(bot.position);
-            let range = isSlide ? 12 : 6;
-            if(dist < range && state.possession === 'bot') {
-                state.possession = 'none';
-                // Topu hafif sektir
-                ballPhysics.vx = (Math.random() - 0.5) * 0.5;
-                ballPhysics.vy = 0.5;
-                ballPhysics.vz = (Math.random() - 0.5) * 0.5;
+        function updateUI() {
+            document.getElementById('attack-btns').style.display = state.possession === 'player' ? 'flex' : 'none';
+            document.getElementById('defense-btns').style.display = state.possession === 'player' ? 'none' : 'flex';
+            document.getElementById('stamina-fill').style.width = playerStats.stamina + '%';
+            if(input.isCharging) {
+                input.actionCharge = Math.min(100, input.actionCharge + 1.5);
+                document.getElementById('power-fill').style.width = input.actionCharge + '%';
             }
         }
 
         function resetGame() {
-            yawObj.position.set(0, 6, 80);
-            bot.position.set(0, 6, -50);
-            ballPhysics = { x: 0, y: 1.5, z: 0, vx: 0, vy: 0, vz: 0, curve: 0 };
-            ball.position.set(0, 1.5, 0);
-            state.possession = 'none';
-            document.getElementById('info').innerHTML = `Skor: ${scores.player} - ${scores.bot}<br><span id="status">Top Boşta</span>`;
+            playerChar.model.position.set(0, 0, 80); botChar.model.position.set(0, 0, -50);
+            ballP = { x: 0, y: 1.5, z: 0, vx: 0, vy: 0, vz: 0, curveX: 0, curveY: 0 };
+            state.possession = 'none'; document.getElementById('info').innerHTML = `Skor: ${scores.player} - ${scores.bot}<br><span id="status">Top Boşta</span>`;
         }
 
-        // --- 5. OYUN DÖNGÜSÜ ---
+        // Uzuv animasyon fonksiyonu
+        function animateHumanoid(char, speedMagnitude) {
+            if(speedMagnitude > 0.01) {
+                char.walkCycle += speedMagnitude * 1.5; // Hıza göre animasyon hızı
+                let swing = Math.sin(char.walkCycle) * 0.8;
+                char.lArm.rotation.x = -swing; char.rArm.rotation.x = swing;
+                char.lLeg.rotation.x = swing; char.rLeg.rotation.x = -swing;
+            } else {
+                char.lArm.rotation.x = 0; char.rArm.rotation.x = 0;
+                char.lLeg.rotation.x = 0; char.rLeg.rotation.x = 0;
+            }
+        }
+        playerChar.walkCycle = 0; botChar.walkCycle = 0;
+
         function animate() {
             requestAnimationFrame(animate);
 
-            // 1. Oyuncu Hareketi (First Person)
+            // 1. OYUNCU HAREKETİ VE ANİMASYON
             let speed = playerStats.speed;
-            if(input.sprint && playerStats.stamina > 0) {
-                speed *= playerStats.sprintMultiplier;
-                playerStats.stamina -= 0.5;
-            } else if (!input.sprint && playerStats.stamina < 100) {
-                playerStats.stamina += 0.2;
-            }
+            if(input.sprint && playerStats.stamina > 0) { speed *= playerStats.sprintMult; playerStats.stamina -= 0.5; } 
+            else if (!input.sprint && playerStats.stamina < 100) playerStats.stamina += 0.2;
 
+            let moveMag = 0;
             if(input.move.x !== 0 || input.move.y !== 0) {
-                // Kameranın baktığı yöne göre yürüme vektörü
-                let dir = new THREE.Vector3(input.move.x, 0, input.move.y).applyAxisAngle(new THREE.Vector3(0,1,0), yawObj.rotation.y);
-                yawObj.position.addScaledVector(dir, speed);
-                
-                // Saha sınırları (Oyuncu için)
-                yawObj.position.x = Math.max(-55, Math.min(55, yawObj.position.x));
-                yawObj.position.z = Math.max(-95, Math.min(95, yawObj.position.z));
+                let dir = new THREE.Vector3(input.move.x, 0, input.move.y).applyAxisAngle(new THREE.Vector3(0,1,0), playerChar.model.rotation.y);
+                playerChar.model.position.addScaledVector(dir, speed);
+                playerChar.model.position.x = Math.max(-55, Math.min(55, playerChar.model.position.x));
+                playerChar.model.position.z = Math.max(-95, Math.min(95, playerChar.model.position.z));
+                moveMag = speed;
             }
+            animateHumanoid(playerChar, moveMag);
 
-            // 2. Top Fizikleri ve Sahip Kontrolü
+            // 2. TOP FİZİĞİ (Magnus Etkisi / Falso)
             if(state.possession === 'player') {
-                // Top oyuncunun kamerasının biraz önünde ve altında durur
-                let offset = new THREE.Vector3(0, -4, -5).applyAxisAngle(new THREE.Vector3(0,1,0), yawObj.rotation.y);
-                ballPhysics.x = yawObj.position.x + offset.x;
-                ballPhysics.y = 1.5;
-                ballPhysics.z = yawObj.position.z + offset.z;
-                ball.position.set(ballPhysics.x, ballPhysics.y, ballPhysics.z);
-            } 
-            else if (state.possession === 'bot') {
-                // Top botun önünde
-                ballPhysics.x = bot.position.x;
-                ballPhysics.y = 1.5;
-                ballPhysics.z = bot.position.z + 5;
-                ball.position.set(ballPhysics.x, ballPhysics.y, ballPhysics.z);
-            } 
-            else {
-                // Serbest Top Fizikleri
-                ballPhysics.vy -= 0.05; // Yerçekimi
-                
-                // Falso etkisi (Sadece havada veya hızlıyken yana doğru ivme)
-                if(Math.abs(ballPhysics.curve) > 0.001) {
-                    // Kameranın baktığı yöne dik (sağ/sol) vektör bul
-                    let rightVec = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,1,0), yawObj.rotation.y);
-                    ballPhysics.vx += rightVec.x * ballPhysics.curve;
-                    ballPhysics.vz += rightVec.z * ballPhysics.curve;
-                    ballPhysics.curve *= 0.98; // Falso gücü zamanla azalır
-                }
-
-                ballPhysics.x += ballPhysics.vx;
-                ballPhysics.y += ballPhysics.vy;
-                ballPhysics.z += ballPhysics.vz;
-
-                // Zemin Çarpışması
-                if(ballPhysics.y < 1.5) {
-                    ballPhysics.y = 1.5;
-                    ballPhysics.vy *= -0.6; // Sekme
-                    ballPhysics.vx *= 0.95; // Yerde sürtünme
-                    ballPhysics.vz *= 0.95;
-                }
-
-                // Duvar Sınırları
-                if(ballPhysics.x < -60 || ballPhysics.x > 60) { ballPhysics.vx *= -1; }
-                if(ballPhysics.z < -100 || ballPhysics.z > 100) { 
-                    // Gol Kontrolü
-                    if(ballPhysics.x > -15 && ballPhysics.x < 15 && ballPhysics.y < 15) {
-                        if(ballPhysics.z < -100) { scores.player++; resetGame(); return; } // Rakip kaleye gol
-                        if(ballPhysics.z > 100) { scores.bot++; resetGame(); return; } // Kendi kalemize gol
-                    } else {
-                        ballPhysics.vz *= -1; // Aut'a çıkmasın sekip geri dönsün
-                    }
-                }
-                
-                ball.position.set(ballPhysics.x, ballPhysics.y, ballPhysics.z);
-
-                // Sahipsizken kapma kontrolü
-                let distToPlayer = new THREE.Vector2(yawObj.position.x, yawObj.position.z).distanceTo(new THREE.Vector2(ball.position.x, ball.position.z));
-                let distToBot = new THREE.Vector2(bot.position.x, bot.position.z).distanceTo(new THREE.Vector2(ball.position.x, ball.position.z));
-                
-                // Eğer top yerdeyse ve yakınsa sahip ol
-                if(ballPhysics.y < 5) {
-                    if(distToPlayer < 6) state.possession = 'player';
-                    else if(distToBot < 6) state.possession = 'bot';
-                }
-            }
-
-            // Top dönsün (Görsellik)
-            ball.rotation.x += ballPhysics.vz * 0.2;
-            ball.rotation.z -= ballPhysics.vx * 0.2;
-
-            // 3. Basit Bot Yapay Zekası
-            if(state.possession === 'bot') {
-                // Top bottayken senin kalene (Z = 100) doğru koşar
-                let dirZ = 100 - bot.position.z;
-                let dirX = 0 - bot.position.x; // Kalenin ortası
-                let length = Math.sqrt(dirX*dirX + dirZ*dirZ);
-                bot.position.x += (dirX/length) * botSpeed * 0.8; // Top sürerken yavaşlar
-                bot.position.z += (dirZ/length) * botSpeed * 0.8;
-                
-                // Şut çekme (Kaleye yaklaşınca)
-                if(bot.position.z > 60) {
-                    state.possession = 'none';
-                    ballPhysics.vx = (0 - ball.position.x) * 0.05;
-                    ballPhysics.vy = 0.5;
-                    ballPhysics.vz = 1.5; // Hızlı şut
-                }
-
-            } else if (state.possession === 'none') {
-                // Top boştayken topa koşar
-                let dirZ = ball.position.z - bot.position.z;
-                let dirX = ball.position.x - bot.position.x;
-                let length = Math.sqrt(dirX*dirX + dirZ*dirZ);
-                if(length > 0) {
-                    bot.position.x += (dirX/length) * botSpeed;
-                    bot.position.z += (dirZ/length) * botSpeed;
-                }
+                let offset = new THREE.Vector3(0, 1.5, -4).applyAxisAngle(new THREE.Vector3(0,1,0), playerChar.model.rotation.y);
+                ballP.x = playerChar.model.position.x + offset.x; ballP.y = 1.5; ballP.z = playerChar.model.position.z + offset.z;
+            } else if (state.possession === 'bot') {
+                ballP.x = botChar.model.position.x; ballP.y = 1.5; ballP.z = botChar.model.position.z + 4;
             } else {
-                // Top sendeyken seninle arasına mesafe koymaya / seni savunmaya çalışır
-                let dirZ = yawObj.position.z - bot.position.z;
-                let dirX = yawObj.position.x - bot.position.x;
-                let length = Math.sqrt(dirX*dirX + dirZ*dirZ);
-                if(length > 10) { // Biraz boşluk bırakarak gelir
-                    bot.position.x += (dirX/length) * botSpeed * 0.9;
-                    bot.position.z += (dirZ/length) * botSpeed * 0.9;
+                ballP.vy -= 0.06; // Yerçekimi
+                
+                // Falso (Aerodinamik kavis) uygulaması
+                let rightVec = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,1,0), playerChar.model.rotation.y);
+                ballP.vx += rightVec.x * ballP.curveX;
+                ballP.vz += rightVec.z * ballP.curveX;
+                ballP.vy += ballP.curveY; // Yukarı veya aşağı ekstra kavis
+                
+                ballP.curveX *= 0.96; // Falso gücü zamanla kırılır
+                ballP.curveY *= 0.96;
+
+                ballP.x += ballP.vx; ballP.y += ballP.vy; ballP.z += ballP.vz;
+
+                if(ballP.y < 1.5) { ballP.y = 1.5; ballP.vy *= -0.6; ballP.vx *= 0.95; ballP.vz *= 0.95; }
+                if(ballP.x < -60 || ballP.x > 60) ballP.vx *= -1;
+                
+                if(ballP.z < -100 || ballP.z > 100) {
+                    if(ballP.x > -15 && ballP.x < 15 && ballP.y < 15) {
+                        if(ballP.z < -100) { scores.player++; resetGame(); return; }
+                        if(ballP.z > 100) { scores.bot++; resetGame(); return; }
+                    } else ballP.vz *= -1;
+                }
+
+                // Top kapma
+                let dPlayer = new THREE.Vector2(playerChar.model.position.x, playerChar.model.position.z).distanceTo(new THREE.Vector2(ballP.x, ballP.z));
+                let dBot = new THREE.Vector2(botChar.model.position.x, botChar.model.position.z).distanceTo(new THREE.Vector2(ballP.x, ballP.z));
+                if(ballP.y < 5) {
+                    if(dPlayer < 5) state.possession = 'player';
+                    else if(dBot < 5) state.possession = 'bot';
                 }
             }
+            ball.position.set(ballP.x, ballP.y, ballP.z);
+            ball.rotation.x += ballP.vz * 0.2; ball.rotation.z -= ballP.vx * 0.2;
+
+            // 3. BOT YAPAY ZEKASI VE ANİMASYONU
+            let botMoveMag = 0;
+            if(state.possession === 'bot') {
+                let dZ = 100 - botChar.model.position.z; let dX = 0 - botChar.model.position.x;
+                let len = Math.sqrt(dX*dX + dZ*dZ);
+                botChar.model.position.x += (dX/len) * 0.25; botChar.model.position.z += (dZ/len) * 0.25;
+                botChar.model.rotation.y = Math.atan2(dX, dZ); botMoveMag = 0.25;
+                if(botChar.model.position.z > 60) { state.possession = 'none'; ballP.vx = (0 - ball.position.x)*0.05; ballP.vy = 0.5; ballP.vz = 1.5; }
+            } else if (state.possession === 'none') {
+                let dZ = ball.position.z - botChar.model.position.z; let dX = ball.position.x - botChar.model.position.x;
+                let len = Math.sqrt(dX*dX + dZ*dZ);
+                if(len > 0) {
+                    botChar.model.position.x += (dX/len) * 0.25; botChar.model.position.z += (dZ/len) * 0.25;
+                    botChar.model.rotation.y = Math.atan2(dX, dZ); botMoveMag = 0.25;
+                }
+            }
+            animateHumanoid(botChar, botMoveMag);
 
             updateUI();
             renderer.render(scene, camera);
         }
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
         animate();
     </script>
 </body>
