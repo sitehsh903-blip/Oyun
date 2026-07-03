@@ -3,59 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mobil Destekli Futbol Arenası</title>
+    <title>3D Web Futbol</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #2c3e50;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        body { 
+            margin: 0; 
+            overflow: hidden; /* Kaydırma çubuklarını gizle */
+            background-color: #2c3e50; 
             font-family: Arial, sans-serif;
-            color: white;
-            touch-action: manipulation;
+            touch-action: none; /* Mobil tarayıcı kaydırmasını engelle */
             user-select: none;
         }
+        /* UI Katmanı (Skor ve Butonlar) 3D sahnenin üstünde duracak */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; /* Tıklamaların alt katmana geçmesine izin ver */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
         #scoreboard {
-            font-size: 24px;
+            text-align: center;
+            font-size: 28px;
             font-weight: bold;
-            margin-top: 10px;
+            color: white;
+            margin-top: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: auto;
         }
-        canvas {
-            background-color: #27ae60;
-            border: 3px solid #ecf0f1;
-            border-radius: 10px;
-            max-width: 95vw;
-            max-height: 50vh;
-        }
-        /* Mobil Buton Alanları */
         .controls-container {
             display: flex;
             justify-content: space-between;
-            width: 95%;
-            margin-top: 15px;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            pointer-events: auto;
+            padding-bottom: 40px;
         }
         .dpad {
             display: grid;
-            grid-template-columns: repeat(3, 50px);
-            grid-template-rows: repeat(3, 50px);
+            grid-template-columns: repeat(3, 55px);
+            grid-template-rows: repeat(3, 55px);
             gap: 5px;
         }
         .btn {
             background-color: rgba(255, 255, 255, 0.2);
             border: 2px solid white;
-            border-radius: 10px;
+            border-radius: 12px;
             color: white;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
+            backdrop-filter: blur(5px);
         }
-        .btn:active {
-            background-color: rgba(255, 255, 255, 0.6);
-        }
+        .btn:active { background-color: rgba(255, 255, 255, 0.7); color: black; }
+        
         #p1-up { grid-column: 2; grid-row: 1; border-color: #e74c3c; }
         #p1-left { grid-column: 1; grid-row: 2; border-color: #e74c3c; }
         #p1-down { grid-column: 2; grid-row: 2; border-color: #e74c3c; }
@@ -69,62 +75,202 @@
 </head>
 <body>
 
-    <div id="scoreboard">Kırmızı: 0 - Mavi: 0</div>
-    <canvas id="gameCanvas" width="800" height="500"></canvas>
-
-    <div class="controls-container">
-        <div class="dpad">
-            <div class="btn" id="p1-up">↑</div>
-            <div class="btn" id="p1-left">←</div>
-            <div class="btn" id="p1-down">↓</div>
-            <div class="btn" id="p1-right">→</div>
-        </div>
-        <div class="dpad">
-            <div class="btn" id="p2-up">↑</div>
-            <div class="btn" id="p2-left">←</div>
-            <div class="btn" id="p2-down">↓</div>
-            <div class="btn" id="p2-right">→</div>
+    <div id="ui-layer">
+        <div id="scoreboard">Kırmızı: 0 - Mavi: 0</div>
+        <div class="controls-container">
+            <div class="dpad">
+                <div class="btn" id="p1-up">↑</div><div class="btn" id="p1-left">←</div><div class="btn" id="p1-down">↓</div><div class="btn" id="p1-right">→</div>
+            </div>
+            <div class="dpad">
+                <div class="btn" id="p2-up">↑</div><div class="btn" id="p2-left">←</div><div class="btn" id="p2-down">↓</div><div class="btn" id="p2-right">→</div>
+            </div>
         </div>
     </div>
 
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
+        // 1. SAHNE, KAMERA VE RENDERER KURULUMU
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a252c); // Arka plan rengi
+        
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Kamerayı yukarıdan sahaya bakacak şekilde ayarlıyoruz
+        camera.position.set(0, 160, 180);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; // Gölgeleri aç
+        document.body.appendChild(renderer.domElement);
+
+        // 2. IŞIKLANDIRMA
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Genel ışık
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); // Güneş/Stadyum ışığı
+        dirLight.position.set(50, 100, 50);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // 3. SAHA VE KALELER
+        const pitchWidth = 120;
+        const pitchLength = 200;
+
+        // Saha Zemini
+        const pitchGeo = new THREE.PlaneGeometry(pitchWidth, pitchLength);
+        const pitchMat = new THREE.MeshLambertMaterial({ color: 0x27ae60 });
+        const pitch = new THREE.Mesh(pitchGeo, pitchMat);
+        pitch.rotation.x = -Math.PI / 2; // Yere yatır
+        pitch.receiveShadow = true;
+        scene.add(pitch);
+
+        // Çizgiler (Basit süsleme)
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+        const centerLineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-60, 0.1, 0), new THREE.Vector3(60, 0.1, 0)]);
+        const centerLine = new THREE.Line(centerLineGeo, lineMat);
+        scene.add(centerLine);
+
+        // Kaleler
+        const goalWidth = 40;
+        const goalMatRed = new THREE.MeshLambertMaterial({ color: 0xffaaaa, transparent: true, opacity: 0.5 });
+        const goalMatBlue = new THREE.MeshLambertMaterial({ color: 0xaaaaff, transparent: true, opacity: 0.5 });
+        
+        // Kırmızıların kalesi (Z: -100)
+        const redGoal = new THREE.Mesh(new THREE.BoxGeometry(goalWidth, 15, 10), goalMatRed);
+        redGoal.position.set(0, 7.5, -100);
+        scene.add(redGoal);
+        
+        // Mavilerin kalesi (Z: 100)
+        const blueGoal = new THREE.Mesh(new THREE.BoxGeometry(goalWidth, 15, 10), goalMatBlue);
+        blueGoal.position.set(0, 7.5, 100);
+        scene.add(blueGoal);
+
+        // 4. OYUN OOBJELERİ (Top ve Oyuncular)
+        class Entity {
+            constructor(radius, color, x, z, mass, isBall = false) {
+                this.radius = radius;
+                this.mass = mass;
+                this.isBall = isBall;
+                this.vx = 0;
+                this.vz = 0;
+                this.speed = 0.8;
+                this.maxSpeed = isBall ? 15 : 6;
+                this.friction = 0.95;
+
+                // 3D Obje oluştur
+                const geo = isBall ? new THREE.SphereGeometry(radius, 32, 32) : new THREE.CylinderGeometry(radius, radius, 10, 32);
+                const mat = new THREE.MeshLambertMaterial({ color: color });
+                this.mesh = new THREE.Mesh(geo, mat);
+                this.mesh.castShadow = true;
+                
+                // Başlangıç pozisyonu
+                this.resetPos(x, z);
+                scene.add(this.mesh);
+            }
+
+            resetPos(x, z) {
+                this.mesh.position.set(x, this.radius + (this.isBall ? 0 : 5), z);
+                this.vx = 0;
+                this.vz = 0;
+            }
+
+            update() {
+                // Sürtünme
+                this.vx *= this.friction;
+                this.vz *= this.friction;
+
+                // Hız limiti
+                let currentSpeed = Math.sqrt(this.vx * this.vx + this.vz * this.vz);
+                if (currentSpeed > this.maxSpeed) {
+                    this.vx = (this.vx / currentSpeed) * this.maxSpeed;
+                    this.vz = (this.vz / currentSpeed) * this.maxSpeed;
+                }
+
+                // Hareketi uygula
+                this.mesh.position.x += this.vx;
+                this.mesh.position.z += this.vz;
+
+                // Duvar çarpışmaları (Sağ-Sol)
+                if (this.mesh.position.x - this.radius < -pitchWidth/2) { this.mesh.position.x = -pitchWidth/2 + this.radius; this.vx *= -1; }
+                if (this.mesh.position.x + this.radius > pitchWidth/2) { this.mesh.position.x = pitchWidth/2 - this.radius; this.vx *= -1; }
+
+                // Kale İçi / Arka Duvar Çarpışmaları (Üst-Alt)
+                let inGoalX = this.mesh.position.x > -goalWidth/2 && this.mesh.position.x < goalWidth/2;
+
+                if (this.mesh.position.z - this.radius < -pitchLength/2) {
+                    if (this.isBall && inGoalX) {
+                        scoreGoal('blue');
+                    } else {
+                        this.mesh.position.z = -pitchLength/2 + this.radius; this.vz *= -1;
+                    }
+                }
+                if (this.mesh.position.z + this.radius > pitchLength/2) {
+                    if (this.isBall && inGoalX) {
+                        scoreGoal('red');
+                    } else {
+                        this.mesh.position.z = pitchLength/2 - this.radius; this.vz *= -1;
+                    }
+                }
+            }
+        }
+
+        const ball = new Entity(4, 0xffffff, 0, 0, 1, true); // Beyaz top
+        const p1 = new Entity(6, 0xe74c3c, 0, 60, 2); // Kırmızı (Aşağıda)
+        const p2 = new Entity(6, 0x3498db, 0, -60, 2); // Mavi (Yukarıda)
+
+        // Skor ve Reset Mantığı
+        let scores = { red: 0, blue: 0 };
         const scoreElement = document.getElementById("scoreboard");
 
-        let scores = { red: 0, blue: 0 };
-        const friction = 0.96;
+        function scoreGoal(team) {
+            scores[team]++;
+            scoreElement.innerText = `Kırmızı: ${scores.red} - Mavi: ${scores.blue}`;
+            ball.resetPos(0, 0);
+            p1.resetPos(0, 60);
+            p2.resetPos(0, -60);
+        }
 
-        // Kontrol durumları
+        // 3D Çarpışma Tespiti (X ve Z ekseninde)
+        function checkCollision(e1, e2) {
+            let dx = e2.mesh.position.x - e1.mesh.position.x;
+            let dz = e2.mesh.position.z - e1.mesh.position.z;
+            let distance = Math.sqrt(dx * dx + dz * dz);
+
+            if (distance < e1.radius + e2.radius) {
+                let angle = Math.atan2(dz, dx);
+                let force = 2.0;
+
+                // İç içe geçmeyi engelle
+                let overlap = (e1.radius + e2.radius) - distance;
+                e2.mesh.position.x += Math.cos(angle) * overlap * 0.5;
+                e2.mesh.position.z += Math.sin(angle) * overlap * 0.5;
+
+                // Momentum (Enerji) Aktarımı
+                e2.vx += Math.cos(angle) * force + (e1.vx * 0.5);
+                e2.vz += Math.sin(angle) * force + (e1.vz * 0.5);
+            }
+        }
+
+        // 5. KONTROLLER (Mobil ve Klavye)
         const controls = {
             p1: { up: false, down: false, left: false, right: false },
             p2: { up: false, down: false, left: false, right: false }
         };
 
-        // Bilgisayar için Klavye Dinleyicileri
+        // Klavye
         window.addEventListener("keydown", (e) => {
-            if (e.key === "w") controls.p1.up = true;
-            if (e.key === "s") controls.p1.down = true;
-            if (e.key === "a") controls.p1.left = true;
-            if (e.key === "d") controls.p1.right = true;
-            if (e.key === "ArrowUp") controls.p2.up = true;
-            if (e.key === "ArrowDown") controls.p2.down = true;
-            if (e.key === "ArrowLeft") controls.p2.left = true;
-            if (e.key === "ArrowRight") controls.p2.right = true;
+            if (e.key === "w") controls.p1.up = true; if (e.key === "s") controls.p1.down = true;
+            if (e.key === "a") controls.p1.left = true; if (e.key === "d") controls.p1.right = true;
+            if (e.key === "ArrowUp") controls.p2.up = true; if (e.key === "ArrowDown") controls.p2.down = true;
+            if (e.key === "ArrowLeft") controls.p2.left = true; if (e.key === "ArrowRight") controls.p2.right = true;
         });
-
         window.addEventListener("keyup", (e) => {
-            if (e.key === "w") controls.p1.up = false;
-            if (e.key === "s") controls.p1.down = false;
-            if (e.key === "a") controls.p1.left = false;
-            if (e.key === "d") controls.p1.right = false;
-            if (e.key === "ArrowUp") controls.p2.up = false;
-            if (e.key === "ArrowDown") controls.p2.down = false;
-            if (e.key === "ArrowLeft") controls.p2.left = false;
-            if (e.key === "ArrowRight") controls.p2.right = false;
+            if (e.key === "w") controls.p1.up = false; if (e.key === "s") controls.p1.down = false;
+            if (e.key === "a") controls.p1.left = false; if (e.key === "d") controls.p1.right = false;
+            if (e.key === "ArrowUp") controls.p2.up = false; if (e.key === "ArrowDown") controls.p2.down = false;
+            if (e.key === "ArrowLeft") controls.p2.left = false; if (e.key === "ArrowRight") controls.p2.right = false;
         });
 
-        // Mobil için Dokunmatik Dinleyiciler
+        // Mobil Dokunmatik
         function setupTouch(id, player, dir) {
             const btn = document.getElementById(id);
             btn.addEventListener("touchstart", (e) => { e.preventDefault(); controls[player][dir] = true; });
@@ -133,80 +279,46 @@
         setupTouch("p1-up", "p1", "up"); setupTouch("p1-down", "p1", "down"); setupTouch("p1-left", "p1", "left"); setupTouch("p1-right", "p1", "right");
         setupTouch("p2-up", "p2", "up"); setupTouch("p2-down", "p2", "down"); setupTouch("p2-left", "p2", "left"); setupTouch("p2-right", "p2", "right");
 
-        class Circle {
-            constructor(x, y, radius, color, mass, isBall = false) {
-                this.x = x; this.y = y; this.radius = radius; this.color = color; this.mass = mass;
-                this.vx = 0; this.vy = 0; this.speed = 0.6; this.maxSpeed = isBall ? 12 : 5; this.isBall = isBall;
-            }
-            draw() {
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fillStyle = this.color; ctx.fill(); ctx.closePath();
-            }
-            update() {
-                this.vx *= friction; this.vy *= friction;
-                let currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-                if (currentSpeed > this.maxSpeed) {
-                    this.vx = (this.vx / currentSpeed) * this.maxSpeed; this.vy = (this.vy / currentSpeed) * this.maxSpeed;
-                }
-                this.x += this.vx; this.y += this.vy;
-                if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -1; }
-                if (this.x + this.radius > canvas.width) { this.x = canvas.width - this.radius; this.vx *= -1; }
-                let inGoalY = this.y > 150 && this.y < 350;
-                if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -1; }
-                if (this.y + this.radius > canvas.height) { this.y = canvas.height - this.radius; this.vy *= -1; }
-                if (this.isBall) {
-                    if (this.x - this.radius <= 5 && inGoalY) { scores.blue++; resetPositions(); }
-                    else if (this.x + this.radius >= canvas.width - 5 && inGoalY) { scores.red++; resetPositions(); }
-                }
-            }
+        // 6. OYUN DÖNGÜSÜ VE RENDER
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Hareketleri Uygula (Dikkat: 3D'de ileri-geri ekseni Z'dir)
+            if (controls.p1.up) p1.vz -= p1.speed;
+            if (controls.p1.down) p1.vz += p1.speed;
+            if (controls.p1.left) p1.vx -= p1.speed;
+            if (controls.p1.right) p1.vx += p1.speed;
+
+            if (controls.p2.up) p2.vz -= p2.speed;
+            if (controls.p2.down) p2.vz += p2.speed;
+            if (controls.p2.left) p2.vx -= p2.speed;
+            if (controls.p2.right) p2.vx += p2.speed;
+
+            // Çarpışmaları Kontrol Et
+            checkCollision(p1, ball);
+            checkCollision(p2, ball);
+            checkCollision(p1, p2);
+
+            // Pozisyonları Güncelle
+            p1.update();
+            p2.update();
+            ball.update();
+            
+            // Topu döndürme efekti (görsellik)
+            ball.mesh.rotation.x += ball.vz * 0.1;
+            ball.mesh.rotation.z -= ball.vx * 0.1;
+
+            renderer.render(scene, camera);
         }
 
-        const ball = new Circle(400, 250, 12, "white", 1, true);
-        const player1 = new Circle(200, 250, 22, "#e74c3c", 2);
-        const player2 = new Circle(600, 250, 22, "#3498db", 2);
+        // Ekran boyutu değiştiğinde kamerayı uyarla
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
 
-        function resetPositions() {
-            ball.x = 400; ball.y = 250; ball.vx = 0; ball.vy = 0;
-            player1.x = 200; player1.y = 250; player1.vx = 0; player1.vy = 0;
-            player2.x = 600; player2.y = 250; player2.vx = 0; player2.vy = 0;
-            scoreElement.innerText = `Kırmızı: ${scores.red} - Mavi: ${scores.blue}`;
-        }
-
-        function checkCollision(c1, c2) {
-            let dx = c2.x - c1.x; let dy = c2.y - c1.y; let distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < c1.radius + c2.radius) {
-                let angle = Math.atan2(dy, dx); let force = 1.8;
-                let overlap = (c1.radius + c2.radius) - distance;
-                c2.x += Math.cos(angle) * overlap * 0.5; c2.y += Math.sin(angle) * overlap * 0.5;
-                c2.vx += Math.cos(angle) * force + (c1.vx * 0.4); c2.vy += Math.sin(angle) * force + (c1.vy * 0.4);
-            }
-        }
-
-        function drawPitch() {
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 500); ctx.stroke();
-            ctx.beginPath(); ctx.arc(400, 250, 60, 0, Math.PI * 2); ctx.stroke();
-            ctx.fillStyle = "rgba(255, 255, 255, 0.2)"; ctx.fillRect(0, 150, 30, 200); ctx.fillRect(770, 150, 30, 200);
-        }
-
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawPitch();
-
-            if (controls.p1.up) player1.vy -= player1.speed;
-            if (controls.p1.down) player1.vy += player1.speed;
-            if (controls.p1.left) player1.vx -= player1.speed;
-            if (controls.p1.right) player1.vx += player1.speed;
-
-            if (controls.p2.up) player2.vy -= player2.speed;
-            if (controls.p2.down) player2.vy += player2.speed;
-            if (controls.p2.left) player2.vx -= player2.speed;
-            if (controls.p2.right) player2.vx += player2.speed;
-
-            checkCollision(player1, ball); checkCollision(player2, ball); checkCollision(player1, player2);
-            player1.update(); player1.draw(); player2.update(); player2.draw(); ball.update(); ball.draw();
-            requestAnimationFrame(gameLoop);
-        }
-        gameLoop();
+        animate(); // Döngüyü Başlat
     </script>
 </body>
 </html>
